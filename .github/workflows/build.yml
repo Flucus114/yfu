@@ -1,0 +1,44 @@
+name: build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extrair o zip
+        run: unzip -o ironorigins-mod.zip
+      - name: Corrigir build.gradle
+        run: |
+          cat > build.gradle <<'EOF'
+          plugins { id 'java'; id 'net.minecraftforge.gradle' version '[6.0.16,6.2)' }
+          version = '0.1.0'
+          group = 'dev.ironorigins'
+          base { archivesName = 'ironorigins-1.20.1' }
+          java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+          minecraft { mappings channel: 'official', version: '1.20.1' }
+          repositories {
+              maven { url 'https://maven.minecraftforge.net/' }
+              exclusiveContent {
+                  forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
+                  forRepositories(fg.repository)
+                  filter { includeGroup 'maven.modrinth' }
+              }
+          }
+          dependencies {
+              minecraft 'net.minecraftforge:forge:1.20.1-47.3.0'
+              implementation fg.deobf('maven.modrinth:s4OWxYQQ:T1VAZjU6')
+          }
+          tasks.named('jar') { finalizedBy 'reobfJar' }
+          EOF
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.1.1
+      - run: gradle build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ironorigins-jar
+          path: build/libs/*.jar
